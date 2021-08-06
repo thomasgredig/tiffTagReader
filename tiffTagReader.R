@@ -19,6 +19,10 @@ tagReader <- function(fname) {
   to.read = file(fname, 'rb')
   q <- readBin(to.read, integer(), n=nLen, endian = "little")
   close(to.read)
+  if (length(which(is.na(q)==TRUE))>0) {
+    warning(paste("reading error: NA found in",fname,"."))
+    q[is.na(q)] <- 0
+  }
 
   # check whether it is a TIFF file
   if (!isTIFF(q)) stop("Unrecognized TIFF format.")
@@ -122,8 +126,8 @@ read.DirEntry <- function(q,X) {
   data.frame(
     tag = tagID,
     type = get16bit(q, X+2),
-    count = get16bit(q, X+4),
-    value = get16bit(q, X+8)
+    count = get32bit(q, X+4),
+    value = get32bit(q, X+8)
   )
 }
 
@@ -201,15 +205,7 @@ readTIFF.ASCII <- function(q,X,len) {
 # ________________________________________
 # returns 8-bit string values such as "54,255,0,3"
 readTIFF.Unknown <- function(q, X, len) {
-  strByte= c()
-  if ((X %% 2)==1) { X=X-1 }
-  for(i in 1:ceiling(len/2)) {
-    w2 = get16bit(q,X+(i-1)*2)
-    w2a = w2 %% 256
-    w2b = floor(w2/256)
-    if (w2b<0) { w2b = w2b + 2^8}
-    strByte = c(strByte,w2a,w2b)
-  }
+  strByte = getStrip(q, X, len)
   paste(strByte, collapse=",")
 }
 
@@ -279,6 +275,7 @@ getStrip <- function(q, X,len) {
   n4 = (n - n3)/2^24
   n3 = (n3 - n2)/2^16
   n2 = (n2 - n1)/2^8
+  n4[n4<0] <- n4[n4<0] + 2^8
   n8 = c(rbind(n1,n2,n3,n4))
   B1 = (X+1) %% 4
   if (B1==0) { B1 = 4 }

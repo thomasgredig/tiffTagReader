@@ -48,8 +48,8 @@ which(is.na(df)==TRUE)
 df[is.na(df)]<-0
 
 # some values are signed, should be unsigned, so change
-ng = which(df<0)
-df[ng] = df[ng]+256
+# ng = which(df<0)
+# df[ng] = df[ng]+256
 
 # check values a bit
 if ((max(df)>255 | min(df)<0)) stop("Height values not within bounds.")
