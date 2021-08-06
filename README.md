@@ -20,6 +20,10 @@ tiffTags[,1:6]
 The included values are *"tag","type","count","value","tagName","typeName","valueStr"*. The *valueStr* includes the data in a string format that is comma separated.
 
 
+# TIFF image
+
+The file `tiffImage.R` shows an example of how to create an image from the TIFF file.
+
 
 
 ## Information

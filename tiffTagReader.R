@@ -22,6 +22,7 @@ tagReader <- function(fname) {
 
   # check whether it is a TIFF file
   if (!isTIFF(q)) stop("Unrecognized TIFF format.")
+  if (isBigEndian(q)) stop("Big Endian encoding not supported yet.")
 
   # read the first image directory file (IDF)
   A = q[2]
@@ -43,25 +44,25 @@ tagReader <- function(fname) {
   tiffTags$valueStr = ""
 
   # read ASCII strings
-  mASCII = which(tags$type==2)
+  mASCII = which(tiffTags$type==2)
   for(m1 in mASCII) {
     tiffTags$valueStr[m1] = readTIFF.ASCII(q, tiffTags$value[m1], tiffTags$count[m1])
   }
 
   # read Long arrays
-  mLong = which(tags$type==4 & tags$count>1)
+  mLong = which(tiffTags$type==4 & tiffTags$count>1)
   for(m1 in mLong) {
     tiffTags$valueStr[m1] = readTIFF.Long(q, tiffTags$value[m1], tiffTags$count[m1])
   }
 
   # read Short arrays
-  mShort = which(tags$type==3 & tags$count>1)
+  mShort = which(tiffTags$type==3 & tiffTags$count>1)
   for(m1 in mShort) {
     tiffTags$valueStr[m1] = readTIFF.ColorMap(q, tiffTags$value[m1], tiffTags$count[m1])
   }
 
   # read unknown arrays
-  mUnkn = which(tags$type==7 & tags$count>1)
+  mUnkn = which(tiffTags$type==7 & tiffTags$count>1)
   for(m1 in mUnkn) {
     warning(paste("Unknown Tag:",tiffTags$tag[m1],"of length",tiffTags$count[m1]))
     tiffTags$valueStr[m1] = readTIFF.Unknown(q, tiffTags$value[m1], tiffTags$count[m1])
@@ -85,8 +86,21 @@ get16bit <- function(q, num) {
     res = n %% 65536
   } else {
     res = floor(n / 65536)
+    if (res<0) { res = res + 2^16 }
   }
   res
+}
+
+# q = file data in 32-bit word chunks
+# num = location to read, num should be even
+# ________________________________________
+# add a function to get the 16bit values
+# can return negative number
+get32bit <- function(q, num) {
+  if ((num %% 4)==0) { n = q[floor(num/4)+1] } else {
+    n = get16bit(q,num+2) * 2^16 + get16bit(q,num)
+  }
+  n
 }
 
 # q = file data in 32-bit word chunks
@@ -207,7 +221,7 @@ readTIFF.Unknown <- function(q, X, len) {
 readTIFF.Long <- function(q, X, len) {
   str = c()
   for(i in 1:len) {
-    str = c(str, get16bit(q,X+(i-1)) )
+    str = c(str, get32bit(q,X+(i-1)*4) )
   }
   paste(str, collapse=",")
 }
@@ -226,4 +240,48 @@ readTIFF.ColorMap <- function(q, X, len) {
     cm = c(cm,w2)
   }
   paste(cm, collapse=",")
+}
+
+# tiffTags = tag data.frame from tagReader
+# tagName = string with tag name, such as "ImageWidth"
+# ________________________________________
+# returns value for certain tag
+tiff.getValue <- function(tiffTags, tagName) {
+  val = NA
+  tagNo = which(tiffTags$tagName==tagName)
+  if (length(tagNo) == 1) {
+    if (tiffTags[tagNo,'count']==1) {
+      val = tiffTags[tagNo,'value']
+    } else {
+      val = tiffTags[tagNo,'valueStr']
+    }
+  }
+  val
+}
+
+# returns TRUE if TIFF image is a palette color image
+tiff.isPaletteColorImage <- function(tiffTags) { tiff.getValue(t, 'PhotometricInterpretation') == 3 }
+
+
+# q = data
+# X = starting position / offset
+# len = length in bytes (8bit)
+# ________________________________________
+# returns a BYTE vector with one image strip
+getStrip <- function(q, X,len) {
+  A1 = floor(X/4)+1
+  A2 = A1 + ceiling(len/4)
+  n = q[A1:A2]
+  # convert n -> n8, so from 32-bits into 8-bit pieces
+  n1 = n %% 2^8
+  n2 = n %% 2^16
+  n3 = n %% 2^24
+  n4 = (n - n3)/2^24
+  n3 = (n3 - n2)/2^16
+  n2 = (n2 - n1)/2^8
+  n8 = c(rbind(n1,n2,n3,n4))
+  B1 = (X+1) %% 4
+  if (B1==0) { B1 = 4 }
+  B2 = B1 + len -1
+  n8[B1:B2]
 }
