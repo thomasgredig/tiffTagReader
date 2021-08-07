@@ -428,3 +428,11 @@ read.Park_file <- function(fname) {
 
   d1
 }
+
+# fname = TIFF file name with AFM image
+# ________________________________________
+# returns data frame with AFM image parameters
+read.ParkAFM.header <-function(tagsTIFF) {
+  afm.params = as.numeric(strsplit(tagsTIFF[16,'valueStr'],',')[[1]])
+  params = get.ParkAFM.header(afm.params)
+}
