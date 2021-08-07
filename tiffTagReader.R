@@ -15,14 +15,7 @@ tagReader <- function(fname) {
   if (!file.exists(fname)) stop(paste("file",fname,"not found!"))
 
   # load entire file
-  nLen = ceiling(file.info(fname)$size/2)
-  to.read = file(fname, 'rb')
-  q <- readBin(to.read, integer(), n=nLen, endian = "little")
-  close(to.read)
-  if (length(which(is.na(q)==TRUE))>0) {
-    warning(paste("reading error: NA found in",fname,"."))
-    q[is.na(q)] <- 0
-  }
+  q = loadBinaryDatafromTIFF(fname)
 
   # check whether it is a TIFF file
   if (!isTIFF(q)) stop("Unrecognized TIFF format.")
@@ -77,7 +70,23 @@ tagReader <- function(fname) {
   tiffTags
 }
 
+# fname = filename to load
+# ________________________________________
+# loads all binary data in 32bit chunks
+loadBinaryDatafromTIFF <- function(fname) {
+  # find the file size and then read in binary format
+  nLen = ceiling(file.info(fname)$size/2)
+  to.read = file(fname, 'rb')
+  q <- readBin(to.read, integer(), n=nLen, endian = "little")
+  close(to.read)
 
+  # check for any reading errors
+  if (length(which(is.na(q)==TRUE))>0) {
+    warning(paste("reading error: NA found in",fname,"."))
+    q[is.na(q)] <- 0
+  }
+  q
+}
 
 # q = file data in 32-bit word chunks
 # num = location to read, num should be even
@@ -281,4 +290,141 @@ getStrip <- function(q, X,len) {
   if (B1==0) { B1 = 4 }
   B2 = B1 + len -1
   n8[B1:B2]
+}
+
+
+# v = vector with 4 bytes
+# ________________________________________
+# returns a 32bit number
+as32Bit <- function(v) { v[4]*2^24+v[3]*2^16+v[2]*2^8+v[1] }
+
+
+# v = vector with 8 bytes containg sign+11bit exp + 51bit mantissa
+# ________________________________________
+# byte2double(c(15,89,253,84,251,33,9,64)) returns roughly Pi
+# byte2double(c(0,0,0,0,0,0,8,64)) returns 3.0
+# returns double number
+byte2double <- function(v) {
+  v = rev(v) # reverse vector: little endian
+  v2b = v[2] %% 16
+  v2a = floor(v[2] / 16)
+  dbl.sgn.digit = floor(v[1] / 128)
+  dbl.exp = (v[1]-dbl.sgn.digit*128)*16+v2a - 1023
+  dbl.mantissa = ((((1*2^4 + v2b)*2^8 + v[3])*2^8 + v[4])*2^8 + v[5])*2^8 + v[6]
+  dbl.mantissa * 2^(dbl.exp-36) * sign((dbl.sgn.digit-0.5)*(-2))
+}
+
+
+# afm.params = 580 byte vector with header information
+# ________________________________________
+# returns data frame
+get.ParkAFM.header <- function(afm.params) {
+  data.frame(
+    # 0=2d mapped image, 1= line profile image, 2=Spectroscopy image
+    imageType = as32Bit(afm.params[1:4]),
+    sourceName = intToUtf8(afm.params[5:68]),
+    imageMode = intToUtf8(afm.params[69:84]),
+    dfLPFStrength = byte2double(afm.params[85:92]),
+    bAutoFlatten = as32Bit(afm.params[93:96]),
+    bACTrack = as32Bit(afm.params[97:100]),
+    nWidth = as32Bit(afm.params[101:104]),
+    nHeight = as32Bit(afm.params[105:108]),
+    dfAngle = byte2double(afm.params[109:116]),
+    bSineScan = as32Bit(afm.params[117:120]),
+    dfOverScan = byte2double(afm.params[121:128]),
+    bFastScanDir = as32Bit(afm.params[129:132]),
+    nSlowScanDir = as32Bit(afm.params[133:136]),
+    bXYSwap = as32Bit(afm.params[137:140]),
+
+    dfXScanSizeum = byte2double(afm.params[141:148]),
+    dfYScanSizeum = byte2double(afm.params[149:156]),
+    dfXOffsetum = byte2double(afm.params[157:164]),
+    dfYOffsetum = byte2double(afm.params[165:172]),
+    dfScanRateHz = byte2double(afm.params[173:180]),
+    dfSetPoint = byte2double(afm.params[181:188]),
+    SetPointUnitW = intToUtf8(afm.params[189:204]),
+
+    dfTipBiasV = byte2double(afm.params[205:212]),
+    dfSampleBiasV = byte2double(afm.params[213:220]),
+    dfDataGain = byte2double(afm.params[221:228]),
+    dfZScale = byte2double(afm.params[229:236]),
+    dfZOffset = byte2double(afm.params[237:244]),
+
+    UnitW  = intToUtf8(afm.params[245:260]),
+
+    nDataMin = as32Bit(afm.params[261:264]),
+    nDataMax = as32Bit(afm.params[265:268]),
+    nDataAvg = as32Bit(afm.params[269:272]),
+    nCompression = as32Bit(afm.params[273:276]),
+    bLogScale = as32Bit(afm.params[277:280]),
+    bSquare = as32Bit(afm.params[281:284]),
+
+    dfZServoGain = byte2double(afm.params[285:292]),
+    dfZScannerRange = byte2double(afm.params[293:300]),
+    XYVoltageMode  = intToUtf8(afm.params[301:316]),
+    ZVoltageMode  = intToUtf8(afm.params[317:332]),
+    XYServoMode   = intToUtf8(afm.params[333:348]),
+
+    # Data Type 0=16bitshort, 1= 32bit int, 2= 32bit float
+    nDataType = as32Bit(afm.params[349:352]),
+    bXPDDRegion = as32Bit(afm.params[353:356]),
+    bYPDDRegion = as32Bit(afm.params[357:360]),
+
+    dfNCMAmplitude = byte2double(afm.params[361:368]),
+    dfNCMFrequency = byte2double(afm.params[369:376]),
+    dfHeadRotationAngle = byte2double(afm.params[377:384]),
+    Cantilever  = intToUtf8(afm.params[385:400]),
+
+    # Non Contact Mode Drive %, range= 0-100
+    dfNCMDrivePercent = byte2double(afm.params[401:408]),
+    dfIntensityFactor = byte2double(afm.params[409:416])
+  )
+}
+
+
+# fname = TIFF file name with AFM image
+# ________________________________________
+# returns data frame with AFM image
+read.Park_file <- function(fname) {
+  # read TIFF tags
+  t = tagReader(fname)
+  afm.params = as.numeric(strsplit(t[16,'valueStr'],',')[[1]])
+  params = get.ParkAFM.header(afm.params)
+
+  # check that the file can be displayed
+  if (!tiff.isPaletteColorImage(t)) stop("Not a palette color image.")
+  if (!tiff.getValue(t,'BitsPerSample') ==  8) stop("Not an 8-bit image.")
+
+  stripOffsets = as.numeric(strsplit(tiff.getValue(t, 'StripOffsets'), ',')[[1]])
+  stripLengths = as.numeric(strsplit(tiff.getValue(t, 'StripByteCounts'), ',')[[1]])
+  if (length(stripOffsets) != length(stripLengths)) stop("tag inconsistency, image offsets and length are not the same.")
+
+  # load entire file (again, could be made more efficient)
+  q = loadBinaryDatafromTIFF(fname)
+
+  # create height values
+  q=c(q,0)  # some accounting issues here, check getStrip start and end point
+  df = c()
+  for(i in 1:length(stripOffsets)) {
+    df = c(df,getStrip(q, stripOffsets[i], stripLengths[i])  )
+  }
+
+  # check values a bit
+  if ((max(df)>255 | min(df)<0)) stop("Height values not within bounds.")
+
+  # create image
+  imWidth = tiff.getValue(t, 'ImageWidth')
+  imHeight = tiff.getValue(t, 'ImageLength')
+  x=rep(1:imWidth,imHeight)
+  y=rep(seq(from=imHeight, to=1),each=imWidth)
+  d1 = data.frame(
+    x,
+    y,
+    z = df-mean(df)
+  )
+  d1$x.nm = params$dfXScanSizeum * d1$x / max(d1$x)*1000
+  d1$y.nm = params$dfYScanSizeum * d1$y / max(d1$y)*1000
+  d1$z.nm = d1$z * params$dfDataGain
+
+  d1
 }
