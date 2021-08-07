@@ -1,6 +1,14 @@
-# Example Code to run read TIFF tags
+# TIFF image: read tags
+# ---------------------
+# Author: Thomas Gredig
+# Date: 2021-08-04
+# ---------------------
 
+# load functions
 source('tiffTagReader.R')
+fname = dir(pattern='tiff$')[1]
+source('_myConfig.R')  # overwrite fname
+
 
 # test random file that does not exist
 tagReader('deleted.TIFF')
@@ -9,12 +17,9 @@ tagReader('deleted.TIFF')
 dir()[1]
 tagReader(dir()[1])
 
-# example file with TIFF file
-fname = '008.tiff'
 # check that file exists
 file.exists(fname)
 
 # read tags of TIFF file
 tags = tagReader(fname)
-
 tags[,1:6]

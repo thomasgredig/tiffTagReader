@@ -4,7 +4,7 @@ A bit of a hack to read tags in TIFF image files using R, display non-compressed
 
 written by Thomas Gredig
 
-## Introduction
+## Installation
 
 This reader function was written to read very specific TIFF files, which are uncompressed. The tool allows you to extract TIFF tags easily on multiple files.
 
