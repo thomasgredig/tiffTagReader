@@ -265,7 +265,9 @@ tiff.getValue <- function(tiffTags, tagName) {
 }
 
 # returns TRUE if TIFF image is a palette color image
-tiff.isPaletteColorImage <- function(tiffTags) { tiff.getValue(t, 'PhotometricInterpretation') == 3 }
+tiff.isPaletteColorImage <- function(tiffTags) {
+  tiff.getValue(tiffTags, 'PhotometricInterpretation') == 3
+}
 
 
 # q = data
@@ -387,16 +389,16 @@ get.ParkAFM.header <- function(afm.params) {
 # returns data frame with AFM image
 read.Park_file <- function(fname) {
   # read TIFF tags
-  t = tagReader(fname)
-  afm.params = as.numeric(strsplit(t[16,'valueStr'],',')[[1]])
+  tiffTags = tagReader(fname)
+  afm.params = as.numeric(strsplit(tiffTags[16,'valueStr'],',')[[1]])
   params = get.ParkAFM.header(afm.params)
 
   # check that the file can be displayed
-  if (!tiff.isPaletteColorImage(t)) stop("Not a palette color image.")
-  if (!tiff.getValue(t,'BitsPerSample') ==  8) stop("Not an 8-bit image.")
+  if (!tiff.isPaletteColorImage(tiffTags)) stop("Not a palette color image.")
+  if (!tiff.getValue(tiffTags,'BitsPerSample') ==  8) stop("Not an 8-bit image.")
 
-  stripOffsets = as.numeric(strsplit(tiff.getValue(t, 'StripOffsets'), ',')[[1]])
-  stripLengths = as.numeric(strsplit(tiff.getValue(t, 'StripByteCounts'), ',')[[1]])
+  stripOffsets = as.numeric(strsplit(tiff.getValue(tiffTags, 'StripOffsets'), ',')[[1]])
+  stripLengths = as.numeric(strsplit(tiff.getValue(tiffTags, 'StripByteCounts'), ',')[[1]])
   if (length(stripOffsets) != length(stripLengths)) stop("tag inconsistency, image offsets and length are not the same.")
 
   # load entire file (again, could be made more efficient)
@@ -413,8 +415,8 @@ read.Park_file <- function(fname) {
   if ((max(df)>255 | min(df)<0)) stop("Height values not within bounds.")
 
   # create image
-  imWidth = tiff.getValue(t, 'ImageWidth')
-  imHeight = tiff.getValue(t, 'ImageLength')
+  imWidth = tiff.getValue(tiffTags, 'ImageWidth')
+  imHeight = tiff.getValue(tiffTags, 'ImageLength')
   x=rep(1:imWidth,imHeight)
   y=rep(seq(from=imHeight, to=1),each=imWidth)
   d1 = data.frame(

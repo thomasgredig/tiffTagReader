@@ -10,6 +10,10 @@ source('tiffTagReader.R')
 fname = dir(pattern='tiff$')[1]
 source('_myConfig.R')  # overwrite fname
 
+# read tiff tag
+tiffTags = tagReader(fname)
+tiffTags[,1:6]
+tiff.getValue(tiffTags, "PhotometricInterpretation")
 
 # display image
 d1 = read.Park_file(fname)
