@@ -307,6 +307,7 @@ as32Bit <- function(v) { v[4]*2^24+v[3]*2^16+v[2]*2^8+v[1] }
 # byte2double(c(0,0,0,0,0,0,8,64)) returns 3.0
 # returns double number
 byte2double <- function(v) {
+  if (sum(v)==0) return(0)
   v = rev(v) # reverse vector: little endian
   v2b = v[2] %% 16
   v2a = floor(v[2] / 16)

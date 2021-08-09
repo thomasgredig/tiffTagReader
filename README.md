@@ -46,8 +46,8 @@ Sample output table:
 The Park AFM parameters can be obtained from the last 580 bytes long tag. The following function converts the tag's value into a readable dataframe:
 
 ```{r}
-t = tagReader(fname)
-params = read.ParkAFM.header(t)
+tiffTags = tagReader(fname)
+params = read.ParkAFM.header(tiffTags)
 t(params)
 ```
 
