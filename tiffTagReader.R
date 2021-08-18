@@ -384,7 +384,6 @@ get.ParkAFM.header <- function(afm.params) {
   )
 }
 
-
 # fname = TIFF file name with AFM image
 # ________________________________________
 # returns data frame with AFM image
@@ -427,7 +426,7 @@ read.Park_file <- function(fname) {
   )
   d1$x.nm = params$dfXScanSizeum * d1$x / max(d1$x)*1000
   d1$y.nm = params$dfYScanSizeum * d1$y / max(d1$y)*1000
-  d1$z.nm = d1$z * params$dfDataGain
+  d1$z.nm = d1$z * exp(params$dfDataGain)*1000  # for "um" (micrometer)
 
   d1
 }
