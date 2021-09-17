@@ -438,3 +438,17 @@ read.ParkAFM.header <-function(tagsTIFF) {
   afm.params = as.numeric(strsplit(tagsTIFF[16,'valueStr'],',')[[1]])
   params = get.ParkAFM.header(afm.params)
 }
+
+
+# x1, y1, z1: raster AFM image
+# ________________________________________________
+# returns z.flat components after removing a plane
+flatten.AFMimage <- function(x1,y1,z1) {
+  b = c(sum(x1*z1), sum(y1*z1), sum(z1))
+  a = matrix(data = c(sum(x1*x1), sum(x1*y1), sum(x1),
+                      sum(x1*y1), sum(y1*y1), sum(y1),
+                      sum(x1), sum(y1), length(z1)),
+             nrow=3)
+  x = solve(a,b)
+  x1*x[1] + y1*x[2] + x[3] - z1
+}

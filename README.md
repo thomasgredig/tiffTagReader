@@ -1,6 +1,6 @@
 # tiffTagReader
 
-A bit of a hack to read tags in TIFF image files using R, display non-compressed images, and load the Park atomic force microscopy (AFM) parameters. 
+A bit of a hack to read tags in TIFF image files using R, display non-compressed images, and load the Park atomic force microscopy (AFM) parameters.
 
 written by Thomas Gredig
 
@@ -65,7 +65,7 @@ For Park AFM images, check that there is a color palette and the data is 8-bit; 
 
 ```{r}
 tiff.isPaletteColorImage(q)
-tiff.getValue(q,'BitsPerSample') ==  8) 
+tiff.getValue(q,'BitsPerSample') ==  8)
 ```
 
 # TIFF image
@@ -83,7 +83,29 @@ ggplot(d1, aes(x.nm ,y.nm, fill = z.nm)) +
   theme_bw()
 ```
 
+Another popular color scheme is `viridis`:
 
+```{r}
+library(viridis)
+ggplot(d1, aes(x ,y, fill = z.nm)) +
+  geom_raster() +
+  scale_fill_viridis(option='viridis') +
+  scale_y_continuous(expand=c(0,0))+
+  scale_x_continuous(expand=c(0,0))+
+  coord_equal() +
+  ggtitle(basename(fname)) +
+  theme_bw()
+```
+
+
+## Display a TIFF image
+
+Use the following code to quickly display a TIFF image
+
+```{r}
+d = readTIFF(fname)
+grid::grid.raster(d)
+```
 
 
 ## Bibliography
