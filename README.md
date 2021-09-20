@@ -4,6 +4,25 @@ A bit of a hack to read tags in TIFF image files using R, display non-compressed
 
 written by Thomas Gredig
 
+## Introduction
+
+TIFF images have a tag header with information. Inside the tag header, there is a Park AFM Data Pointer (ID: 50434) and a Park AFM Header Pointer (ID: 50435). The data points to the image data stored as 32-bit values, use the function `loadBinaryAFMDatafromTIFF` to read this portion of the data. In addition, the "regular" TIFF image is stored in strips, see ID tag 273 (StripOffsets) and ID tag 279, which contains the StripByteCounts.
+
+
+## How to Use
+
+Load and display an Park AFM image as follows:
+
+```{r}
+source('tiffTagReader.R')
+d = read.ParkImage(fname)
+ggplot(d1, aes(x.nm ,y.nm, fill = z.nm)) + geom_raster() +
+  scale_fill_viridis(option='viridis') +
+  scale_y_continuous(expand=c(0,0)) + scale_x_continuous(expand=c(0,0))+
+  coord_equal() + theme_bw()
+```
+
+
 ## Installation
 
 This reader function was written to read very specific TIFF files, which are uncompressed. The tool allows you to extract TIFF tags easily on multiple files.
@@ -73,7 +92,7 @@ tiff.getValue(q,'BitsPerSample') ==  8)
 The file `tiffImage.R` shows an example of how to create an image from the TIFF file; the function `read.Park_file(fname)` will return a dataframe with all the height information.
 
 ```{r}
-d1 = read.Park_file(fname)
+d1 = read.ParkImage(fname)
 ggplot(d1, aes(x.nm ,y.nm, fill = z.nm)) +
   geom_raster() +
   scale_fill_gradient2(low='black', mid='orange', high='white') +

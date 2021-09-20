@@ -167,14 +167,14 @@ identifyTIFFtags <- function(tagID) {
                      273,274,277,
                      278,279,
                      305,306,315,
-                     320
+                     320, 50434, 50435
             ),
             to = c("ImageWidth","ImageLength","BitsPerSample","Compression",
                    "PhotometricInterpretation","Thresholding","CellWidth","CellLength",
                    "StripOffsets","Orientation","SamplesPerPixel",
                    "RowsPerStrip","StripByteCounts",
                    "Software","DateTime","Artist",
-                   "ColorMap"
+                   "ColorMap", "ParkAFMdata", "ParkAFMheader"
             ))
 }
 
@@ -431,6 +431,43 @@ read.Park_file <- function(fname) {
   d1
 }
 
+
+# fname = TIFF file name with AFM image
+# ________________________________________
+# returns data frame with AFM image
+read.ParkImage <- function(fname) {
+  # read TIFF tags
+  tiffTags = tagReader(fname)
+  afm.params = as.numeric(strsplit(tiffTags[16,'valueStr'],',')[[1]])
+  params = get.ParkAFM.header(afm.params)
+
+  # check that the file can be displayed
+  if (!tiff.isPaletteColorImage(tiffTags)) stop("Not a palette color image.")
+  if (!tiff.getValue(tiffTags,'BitsPerSample') ==  8) stop("Not an 3 x 8-bit image.")
+
+  # read data
+  dataStart = tiffTags[which(tiffTags$tag==50434),]$value
+  dataLen = tiffTags[which(tiffTags$tag==50434),]$count
+  df = loadBinaryAFMDatafromTIFF(fname, dataStart, dataLen)
+
+
+  # create image
+  imWidth = tiff.getValue(tiffTags, 'ImageWidth')
+  imHeight = tiff.getValue(tiffTags, 'ImageLength')
+  x=rep(1:imWidth,imHeight)
+  y=rep(seq(from=imHeight, to=1),each=imWidth)
+  d1 = data.frame(
+    x,
+    y,
+    z = df
+  )
+  d1$x.nm = params$dfXScanSizeum * d1$x / max(d1$x)*1000
+  d1$y.nm = params$dfYScanSizeum * d1$y / max(d1$y)*1000
+  d1$z.nm = d1$z * exp(params$dfDataGain)
+
+  d1
+}
+
 # fname = TIFF file name with AFM image
 # ________________________________________
 # returns data frame with AFM image parameters
@@ -451,4 +488,20 @@ flatten.AFMimage <- function(x1,y1,z1) {
              nrow=3)
   x = solve(a,b)
   x1*x[1] + y1*x[2] + x[3] - z1
+}
+
+
+
+# fname:      filename including path
+# dataStart:  byte position of where data starts
+# dataLen:    length of data in bytes
+# ________________________________________________
+# returns 32-bit integers with data
+loadBinaryAFMDatafromTIFF <- function(fname, dataStart, dataLen) {
+  if ((dataLen %% 4) != 0) { warning("Data Length not 32-bit multiple.") }
+  to.read = file(fname, 'rb')
+  q1 <- readBin(to.read, raw(), n=dataStart, endian = "little")
+  q <- readBin(to.read, integer(), n=(dataLen/4), endian = "little")
+  close(to.read)
+  q
 }
