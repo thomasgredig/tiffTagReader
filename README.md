@@ -2,7 +2,7 @@
 
 A bit of a hack to read tags in TIFF image files using R, display non-compressed images, and load the Park atomic force microscopy (AFM) parameters.
 
-written by Thomas Gredig
+written by **Thomas Gredig**
 
 ## Introduction
 
@@ -16,7 +16,7 @@ Load and display an Park AFM image as follows:
 ```{r}
 source('tiffTagReader.R')
 d = read.ParkImage(fname)
-ggplot(d1, aes(x.nm ,y.nm, fill = z.nm)) + geom_raster() +
+ggplot(d, aes(x.nm ,y.nm, fill = z.nm)) + geom_raster() +
   scale_fill_viridis(option='viridis') +
   scale_y_continuous(expand=c(0,0)) + scale_x_continuous(expand=c(0,0))+
   coord_equal() + theme_bw()

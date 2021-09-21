@@ -388,6 +388,7 @@ get.ParkAFM.header <- function(afm.params) {
 # ________________________________________
 # returns data frame with AFM image
 read.Park_file <- function(fname) {
+  warning("Depracated: use read.ParkImage() instead.")
   # read TIFF tags
   tiffTags = tagReader(fname)
   afm.params = as.numeric(strsplit(tiffTags[16,'valueStr'],',')[[1]])
@@ -454,6 +455,10 @@ read.ParkImage <- function(fname) {
   # create image
   imWidth = tiff.getValue(tiffTags, 'ImageWidth')
   imHeight = tiff.getValue(tiffTags, 'ImageLength')
+  if (imHeight != imWidth) {
+    warning("Image is not square.")
+    imHeight=imWidth
+  }
   x=rep(1:imWidth,imHeight)
   y=rep(seq(from=imHeight, to=1),each=imWidth)
   d1 = data.frame(
