@@ -61,7 +61,7 @@ tagReader <- function(fname) {
   # read unknown arrays
   mUnkn = which(tiffTags$type==7 & tiffTags$count>1)
   for(m1 in mUnkn) {
-    warning(paste("Unknown Tag:",tiffTags$tag[m1],"of length",tiffTags$count[m1]))
+    # warning(paste("Unknown Tag:",tiffTags$tag[m1],"of length",tiffTags$count[m1]))
     tiffTags$valueStr[m1] = readTIFF.Unknown(q, tiffTags$value[m1], tiffTags$count[m1])
   }
 
@@ -167,17 +167,23 @@ identifyTIFFtags <- function(tagID) {
                      273,274,277,
                      278,279,
                      305,306,315,
-                     320, 50434, 50435
+                     320,
+                     50432, 50433,
+                     50434, 50435, 50436,
+                     50437, 50438, 50439
             ),
             to = c("ImageWidth","ImageLength","BitsPerSample","Compression",
                    "PhotometricInterpretation","Thresholding","CellWidth","CellLength",
                    "StripOffsets","Orientation","SamplesPerPixel",
                    "RowsPerStrip","StripByteCounts",
                    "Software","DateTime","Artist",
-                   "ColorMap", "ParkAFMdata", "ParkAFMheader"
-            ))
+                   "ColorMap",
+                   "ParkMagicNumber", "ParkVersion",
+                   "ParkAFMdata", "ParkAFMheader", "ParkComments",
+                   "ParkLineProfile", "ParkSpectroHeader","ParkSpectroData"
+            ),
+            warn_missing=FALSE)
 }
-
 
 # tagsType = type number
 # ________________________________________
@@ -189,7 +195,8 @@ identifyTIFFtypes <- function(tagsType) {
             from = 1:12,
             to = c("Byte","ASCII","Short (16-bit)","Long (32-bit)",
                    "Rational","SByte","Undefined","SShort","SLong","SRational",
-                   "Float","Double"))
+                   "Float","Double"),
+            warn_missing=FALSE)
 }
 
 
@@ -269,6 +276,15 @@ tiff.isPaletteColorImage <- function(tiffTags) {
   tiff.getValue(tiffTags, 'PhotometricInterpretation') == 3
 }
 
+# returns TRUE if the AFM image is a Park AFM TIFF image file
+tiff.checkMagicNumber <- function(tiffTags) {
+  tiff.getValue(tiffTags, 'ParkMagicNumber') == 235082497
+}
+
+# returns the version of the AFM TIFF file
+tiff.getAFMversion <- function(tiffTags) {
+  tiff.getValue(tiffTags, 'ParkVersion') %% 256   # PSIA_VERSION1 = 0x01000001
+}
 
 # q = data
 # X = starting position / offset
@@ -353,7 +369,7 @@ get.ParkAFM.header <- function(afm.params) {
     dfZScale = byte2double(afm.params[229:236]),
     dfZOffset = byte2double(afm.params[237:244]),
 
-    UnitW  = intToUtf8(afm.params[245:260]),
+    UnitZ  = intToUtf8(afm.params[245:260]),
 
     nDataMin = as32Bit(afm.params[261:264]),
     nDataMax = as32Bit(afm.params[265:268]),
@@ -423,13 +439,22 @@ read.Park_file <- function(fname) {
   d1 = data.frame(
     x,
     y,
-    z = df-mean(df)
+    z = df
   )
   d1$x.nm = params$dfXScanSizeum * d1$x / max(d1$x)*1000
   d1$y.nm = params$dfYScanSizeum * d1$y / max(d1$y)*1000
-  d1$z.nm = d1$z * exp(params$dfDataGain)*1000  # for "um" (micrometer)
-
+  d1$z.nm = (d1$z * params$dfDataGain + params$dfZOffset) *
+    units2nanometer(params$UnitZ)
   d1
+}
+
+units2nanometer <- function(unitZ) {
+  power = 1e-6
+  if(unitZ=='um') { power = 1e-6 }
+  else if (unitZ=='nm') { power = 1e-9 }
+  else if (unitZ=='mm') { power = 1e-3 }
+  else { warning(paste("Unknown UnitZ:",unitZ)) }
+  power
 }
 
 
@@ -450,7 +475,7 @@ read.ParkImage <- function(fname) {
   dataStart = tiffTags[which(tiffTags$tag==50434),]$value
   dataLen = tiffTags[which(tiffTags$tag==50434),]$count
   # warning(paste("length:",dataLen))
-  df = loadBinaryAFMDatafromTIFF(fname, dataStart, dataLen)
+  df = loadBinaryAFMDatafromTIFF(fname, dataStart, dataLen, params$nDataType)
 
 
   # create image
@@ -474,7 +499,8 @@ read.ParkImage <- function(fname) {
   )
   d1$x.nm = params$dfXScanSizeum * d1$x / max(d1$x)*1000
   d1$y.nm = params$dfYScanSizeum * d1$y / max(d1$y)*1000
-  d1$z.nm = d1$z * exp(params$dfDataGain)
+  d1$z.nm = (d1$z * params$dfDataGain + params$dfZOffset) *
+    units2nanometer(params$UnitZ)
 
   d1
 }
@@ -506,13 +532,16 @@ flatten.AFMimage <- function(x1,y1,z1) {
 # fname:      filename including path
 # dataStart:  byte position of where data starts
 # dataLen:    length of data in bytes
+# dataType:   0=16bit, 1=32bit int, 2=32bit float
 # ________________________________________________
 # returns 32-bit integers with data
-loadBinaryAFMDatafromTIFF <- function(fname, dataStart, dataLen) {
+loadBinaryAFMDatafromTIFF <- function(fname, dataStart, dataLen, dataType) {
+  if (dataType != 2) { warning("Data type is not 32-bit float.") }
   if ((dataLen %% 4) != 0) { warning("Data Length not 32-bit multiple.") }
   to.read = file(fname, 'rb')
   q1 <- readBin(to.read, raw(), n=dataStart, endian = "little")
-  q <- readBin(to.read, integer(), n=(dataLen/4), endian = "little")
+  # since double is 64bits
+  q <- readBin(to.read, double(), size=4, n=(dataLen/4), endian = "little")
   close(to.read)
   q
 }

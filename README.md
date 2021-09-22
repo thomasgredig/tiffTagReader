@@ -127,6 +127,19 @@ grid::grid.raster(d)
 ```
 
 
+## Tests
+
+With the TIFF tag reader, you can also check the color palette and the magic number and find the version
+
+```{r}
+tiffTags = tagReader(fname)
+# look for Magic Number
+tiff.checkMagicNumber(tiffTags)
+tiff.isPaletteColorImage(tiffTags)
+# check for the version
+tiff.getAFMversion(tiffTags)
+```
+
 ## Bibliography
 
 - [TIFF image files](https://en.wikipedia.org/wiki/TIFF)
