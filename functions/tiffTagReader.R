@@ -449,6 +449,7 @@ read.ParkImage <- function(fname) {
   # read data
   dataStart = tiffTags[which(tiffTags$tag==50434),]$value
   dataLen = tiffTags[which(tiffTags$tag==50434),]$count
+  # warning(paste("length:",dataLen))
   df = loadBinaryAFMDatafromTIFF(fname, dataStart, dataLen)
 
 
@@ -459,8 +460,13 @@ read.ParkImage <- function(fname) {
     warning("Image is not square.")
     imHeight=imWidth
   }
+  if (length(df) != imHeight*imWidth) {
+    imHeight = sqrt(length(df))
+    imWidth = imHeight
+  }
   x=rep(1:imWidth,imHeight)
   y=rep(seq(from=imHeight, to=1),each=imWidth)
+  # warning(paste("width:",imWidth," pixels"))
   d1 = data.frame(
     x,
     y,
