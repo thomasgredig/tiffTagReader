@@ -449,10 +449,12 @@ read.Park_file <- function(fname) {
 }
 
 units2nanometer <- function(unitZ) {
-  power = 1e-6
-  if(unitZ=='um') { power = 1e-6 }
-  else if (unitZ=='nm') { power = 1e-9 }
-  else if (unitZ=='mm') { power = 1e-3 }
+  power = 1e3
+  if(unitZ=='um') { power = 1e3 }
+  else if (unitZ=='nm') { power = 1 }
+  else if (unitZ=='deg') { power = 1 }
+
+  else if (unitZ=='mm') { power = 1e6 }
   else { warning(paste("Unknown UnitZ:",unitZ)) }
   power
 }
@@ -490,7 +492,7 @@ read.ParkImage <- function(fname) {
     imWidth = imHeight
   }
   x=rep(1:imWidth,imHeight)
-  y=rep(seq(from=imHeight, to=1),each=imWidth)
+  y=rep(seq(from=1, to=imHeight),each=imWidth)
   # warning(paste("width:",imWidth," pixels"))
   d1 = data.frame(
     x,
@@ -499,8 +501,7 @@ read.ParkImage <- function(fname) {
   )
   d1$x.nm = params$dfXScanSizeum * d1$x / max(d1$x)*1000
   d1$y.nm = params$dfYScanSizeum * d1$y / max(d1$y)*1000
-  d1$z.nm = (d1$z * params$dfDataGain + params$dfZOffset) *
-    units2nanometer(params$UnitZ)
+  d1$z.nm = (d1$z * params$dfDataGain) *  units2nanometer(params$UnitZ)
 
   d1
 }
@@ -517,16 +518,16 @@ read.ParkAFM.header <-function(tagsTIFF) {
 # x1, y1, z1: raster AFM image
 # ________________________________________________
 # returns z.flat components after removing a plane
+# https://stackoverflow.com/questions/1400213/3d-least-squares-plane
 flatten.AFMimage <- function(x1,y1,z1) {
   b = c(sum(x1*z1), sum(y1*z1), sum(z1))
-  a = matrix(data = c(sum(x1*x1), sum(x1*y1), sum(x1),
+  A = matrix(data = c(sum(x1*x1), sum(x1*y1), sum(x1),
                       sum(x1*y1), sum(y1*y1), sum(y1),
                       sum(x1), sum(y1), length(z1)),
              nrow=3)
-  x = solve(a,b)
-  x1*x[1] + y1*x[2] + x[3] - z1
+  x = solve(A,b)
+  z1 - x1*x[1] - y1*x[2] - x[3]
 }
-
 
 
 # fname:      filename including path
@@ -538,9 +539,10 @@ flatten.AFMimage <- function(x1,y1,z1) {
 loadBinaryAFMDatafromTIFF <- function(fname, dataStart, dataLen, dataType) {
   if (dataType != 2) { warning("Data type is not 32-bit float.") }
   if ((dataLen %% 4) != 0) { warning("Data Length not 32-bit multiple.") }
+
   to.read = file(fname, 'rb')
   q1 <- readBin(to.read, raw(), n=dataStart, endian = "little")
-  # since double is 64bits
+  # since double is 64bits, use size = 4 to load 32bits
   q <- readBin(to.read, double(), size=4, n=(dataLen/4), endian = "little")
   close(to.read)
   q
